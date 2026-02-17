@@ -29,7 +29,7 @@ function initChatKit() {
 
     // Check if the ChatKit React bindings are available
     // Since ChatKit is loaded via CDN, we check for the global
-    if (typeof window.ChatKit !== 'undefined') {
+    if (typeof window.ChatKit !== 'undefined' && window.React && window.ReactDOM) {
         mountChatKit();
         return;
     }
@@ -37,6 +37,76 @@ function initChatKit() {
     // If ChatKit React bindings aren't available via CDN globals,
     // fall back to the manual integration approach
     mountManualChat(root);
+}
+
+// ---- ChatKit Widget Integration ----
+// Uses ChatKit React component to connect to Agent Builder workflow
+
+function mountChatKit() {
+    const root = document.getElementById('chatkit-root');
+    if (!root) return;
+
+    // Check if React and ChatKit are available
+    if (!window.React || !window.ReactDOM || !window.ChatKit) {
+        console.warn('ChatKit or React not available, falling back to manual chat');
+        mountManualChat(root);
+        return;
+    }
+
+    const { useState, useEffect } = window.React;
+    const { createRoot } = window.ReactDOM;
+    const { ChatKit, useChatKit } = window.ChatKit;
+
+    // ChatKit component that connects to your workflow
+    function ChatKitComponent() {
+        const { control } = useChatKit({
+            api: {
+                async getClientSecret(existing) {
+                    if (existing) {
+                        // Implement session refresh if needed
+                        // For now, create a new session
+                    }
+
+                    // Get client secret from our worker
+                    const res = await fetch(CONFIG.WORKER_URL + '/chatkit/session', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            workflowId: CONFIG.WORKFLOW_ID,
+                            userId: getDeviceId(),
+                        }),
+                    });
+
+                    if (!res.ok) {
+                        throw new Error('Failed to create ChatKit session');
+                    }
+
+                    const { client_secret } = await res.json();
+                    return client_secret;
+                },
+            },
+        });
+
+        return window.React.createElement(ChatKit, {
+            control: control,
+            className: 'chatkit-widget',
+            style: {
+                height: '100%',
+                width: '100%',
+            },
+        });
+    }
+
+    // Mount ChatKit using React
+    try {
+        const reactRoot = createRoot(root);
+        reactRoot.render(window.React.createElement(ChatKitComponent));
+    } catch (error) {
+        console.error('Failed to mount ChatKit:', error);
+        mountManualChat(root);
+    }
 }
 
 // ---- Manual Chat (Fallback / Pre-ChatKit-CDN) ----

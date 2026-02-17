@@ -36,6 +36,17 @@ body {
     overflow: hidden;
 }
 
+/* ChatKit Widget Styling */
+.chatkit-widget {
+    height: 100%;
+    width: 100%;
+}
+
+.chatkit-widget iframe {
+    border: none;
+    border-radius: var(--radius-lg);
+}
+
 /* Background animated orbs */
 .bg-orbs {
     position: fixed;
