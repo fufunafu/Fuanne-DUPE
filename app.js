@@ -32,10 +32,23 @@ function initChatKit() {
     console.log('  - window.React:', typeof window.React !== 'undefined' ? '✅ Available' : '❌ Not available');
     console.log('  - window.ReactDOM:', typeof window.ReactDOM !== 'undefined' ? '✅ Available' : '❌ Not available');
     console.log('  - window.ChatKitReact:', typeof window.ChatKitReact !== 'undefined' ? '✅ Available' : '❌ Not available');
+    
+    // Debug: Log all window properties that contain "chat" or "Chat"
+    const chatRelated = Object.keys(window).filter(k => 
+        k.toLowerCase().includes('chat') || k.toLowerCase().includes('openai')
+    );
+    if (chatRelated.length > 0) {
+        console.log('  - Chat-related globals found:', chatRelated);
+    }
 
-    // Check if the ChatKit React bindings are available
-    // Since ChatKit is loaded via CDN, we check for the global
-    if (typeof window.ChatKit !== 'undefined' && window.React && window.ReactDOM) {
+    // Check multiple possible ways ChatKit might be exposed
+    const chatKitAvailable = 
+        typeof window.ChatKit !== 'undefined' ||
+        typeof window.ChatKitReact !== 'undefined' ||
+        (window.OpenAI && window.OpenAI.ChatKit) ||
+        (window.openai && window.openai.ChatKit);
+    
+    if (chatKitAvailable && window.React && window.ReactDOM) {
         console.log('✅ ChatKit and React detected, attempting to mount ChatKit widget...');
         mountChatKit();
         return;
@@ -44,6 +57,7 @@ function initChatKit() {
     // If ChatKit React bindings aren't available via CDN globals,
     // fall back to the manual integration approach
     console.log('⚠️ ChatKit widget not available, falling back to manual chat (workflow will not be used)');
+    console.log('💡 To use your Agent Builder workflow, ChatKit needs to load. Check Network tab for script loading errors.');
     mountManualChat(root);
 }
 

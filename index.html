@@ -9,13 +9,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 
+    <!-- React (needed for ChatKit) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
     <!-- ChatKit JS from OpenAI -->
     <script
         src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
         async
     ></script>
-    <!-- ChatKit React bindings -->
+    
+    <!-- ChatKit React bindings - try multiple possible CDN locations -->
     <script src="https://unpkg.com/@openai/chatkit-react@latest/dist/index.umd.js" crossorigin></script>
+    <!-- Alternative: if above doesn't work, ChatKit might be bundled differently -->
 </head>
 <body>
     <!-- Glassmorphism background elements -->
@@ -80,10 +86,7 @@
         </main>
     </div>
 
-    <!-- React (needed for ChatKit React bindings) -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-
+    <!-- Note: React is now loaded in <head> above -->
     <script src="app.js"></script>
 </body>
 </html>

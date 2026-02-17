@@ -173,79 +173,177 @@ async function handleDirectChat(request, env, corsHeaders) {
 
 // ---- Workflow Chat via ChatKit API ----
 // Uses ChatKit sessions to run workflows from Agent Builder
-// For Agent Builder workflows, we use the Responses API with workflow context
-// The workflow ID is used to route to the correct Agent Builder workflow
+// Agent Builder workflows must be accessed through ChatKit sessions
 
 async function handleWorkflowChat(request, env, corsHeaders, { message, threadId, workflowId, userId }) {
     const apiKey = env.OPENAI_API_KEY;
     
-    // For Agent Builder workflows, use the Responses API with workflow context
-    // The workflow is identified by the workflow ID
+    try {
+        // Step 1: Create a ChatKit session with the workflow ID
+        // Use threadId as a session identifier to maintain conversation state
+        const sessionKey = threadId ? `session_${threadId}` : null;
+        
+        const sessionResponse = await fetch(`${OPENAI_BASE}/chatkit/sessions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'OpenAI-Beta': 'chatkit_beta=v1',
+            },
+            body: JSON.stringify({
+                workflow: { id: workflowId },
+                user: userId || 'anonymous',
+            }),
+        });
+
+        if (!sessionResponse.ok) {
+            const errorData = await sessionResponse.text();
+            console.error('ChatKit session creation error:', errorData);
+            return jsonResponse(
+                { error: 'Failed to create ChatKit session for workflow' },
+                sessionResponse.status,
+                corsHeaders
+            );
+        }
+
+        const sessionData = await sessionResponse.json();
+        const clientSecret = sessionData.client_secret;
+
+        // Step 2: Use the ChatKit API to send a message through the workflow
+        // Try multiple possible endpoints for ChatKit message sending
+        
+        // Try endpoint 1: /chatkit/messages
+        let runResponse = await fetch(`${OPENAI_BASE}/chatkit/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${clientSecret}`,
+                'OpenAI-Beta': 'chatkit_beta=v1',
+            },
+            body: JSON.stringify({
+                messages: [
+                    {
+                        role: 'user',
+                        content: message,
+                    },
+                ],
+            }),
+        });
+
+        // If that doesn't work, try /chatkit/runs
+        if (!runResponse.ok) {
+            console.log('Trying /chatkit/runs endpoint...');
+            runResponse = await fetch(`${OPENAI_BASE}/chatkit/runs`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${clientSecret}`,
+                    'OpenAI-Beta': 'chatkit_beta=v1',
+                },
+                body: JSON.stringify({
+                    messages: [
+                        {
+                            role: 'user',
+                            content: message,
+                        },
+                    ],
+                }),
+            });
+        }
+
+        if (!runResponse.ok) {
+            const errorText = await runResponse.text();
+            console.error('ChatKit API error:', errorText);
+            console.error('Status:', runResponse.status);
+            
+            // The ChatKit API might not support programmatic message sending
+            // Agent Builder workflows are designed for the ChatKit widget
+            // Return an informative error
+            return jsonResponse(
+                { 
+                    error: 'Agent Builder workflows require ChatKit widget. The workflow cannot be invoked programmatically via API. Consider using the ChatKit React component instead.',
+                    details: errorText
+                },
+                runResponse.status,
+                corsHeaders
+            );
+        }
+
+        const runData = await runResponse.json();
+        
+        // Extract the response from ChatKit run
+        let responseText = 'No response received.';
+        
+        // ChatKit run response structure may vary
+        if (runData.messages && Array.isArray(runData.messages)) {
+            const assistantMsg = runData.messages.find(m => m.role === 'assistant');
+            if (assistantMsg) {
+                if (typeof assistantMsg.content === 'string') {
+                    responseText = assistantMsg.content;
+                } else if (Array.isArray(assistantMsg.content)) {
+                    responseText = assistantMsg.content
+                        .filter(c => c.type === 'text')
+                        .map(c => c.text)
+                        .join('\n');
+                }
+            }
+        } else if (runData.output) {
+            // Alternative response structure
+            responseText = JSON.stringify(runData.output);
+        }
+
+        return jsonResponse(
+            {
+                response: responseText,
+                threadId: runData.id || sessionData.id || threadId,
+            },
+            200,
+            corsHeaders
+        );
+    } catch (error) {
+        console.error('Workflow chat error:', error);
+        return jsonResponse(
+            { error: 'Failed to process workflow request: ' + error.message },
+            500,
+            corsHeaders
+        );
+    }
+}
+
+// Fallback to Responses API (without workflow)
+async function fallbackToResponsesAPI(apiKey, message, threadId, corsHeaders) {
     const headers = {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
     };
 
-    // Use Responses API with workflow context
-    // Note: The Responses API may need the workflow ID in a specific format
     const responsePayload = {
         model: 'gpt-4o',
         input: message,
-        // Include workflow context - this tells OpenAI to use the Agent Builder workflow
-        workflow: { id: workflowId },
     };
 
-    // If we have a previous conversation thread, include it for continuity
     if (threadId) {
         responsePayload.previous_response_id = threadId;
     }
 
-    // Also include user context for the workflow
-    if (userId) {
-        responsePayload.user = userId;
-    }
+    const aiResponse = await fetch(`${OPENAI_BASE}/responses`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(responsePayload),
+    });
 
-    try {
-        const aiResponse = await fetch(`${OPENAI_BASE}/responses`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(responsePayload),
-        });
-
-        if (!aiResponse.ok) {
-            const errorData = await aiResponse.text();
-            console.error('Workflow API error:', errorData);
-            
-            // If workflow parameter doesn't work, try without it as fallback
-            delete responsePayload.workflow;
-            const fallbackResponse = await fetch(`${OPENAI_BASE}/responses`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(responsePayload),
-            });
-            
-            if (!fallbackResponse.ok) {
-                return jsonResponse(
-                    { error: 'Failed to get workflow response' },
-                    fallbackResponse.status,
-                    corsHeaders
-                );
-            }
-            
-            const fallbackData = await fallbackResponse.json();
-            return extractResponse(fallbackData, threadId, corsHeaders);
-        }
-
-        const data = await aiResponse.json();
-        return extractResponse(data, threadId, corsHeaders);
-    } catch (error) {
-        console.error('Workflow chat error:', error);
+    if (!aiResponse.ok) {
+        const errorData = await aiResponse.text();
+        console.error('Fallback API error:', errorData);
         return jsonResponse(
-            { error: 'Failed to process workflow request' },
-            500,
+            { error: 'Failed to get AI response' },
+            aiResponse.status,
             corsHeaders
         );
     }
+
+    const data = await aiResponse.json();
+    return extractResponse(data, threadId, corsHeaders);
 }
 
 // Helper function to extract response from API data
