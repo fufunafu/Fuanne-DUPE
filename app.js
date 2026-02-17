@@ -455,26 +455,49 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const checkChatKit = setInterval(() => {
         attempts++;
-        const hasChatKit = typeof window.ChatKit !== 'undefined';
+        
+        // Check multiple possible ways ChatKit might be exposed
+        const hasChatKit = 
+            typeof window.ChatKit !== 'undefined' ||
+            typeof window.ChatKitReact !== 'undefined' ||
+            (window.OpenAI && typeof window.OpenAI.ChatKit !== 'undefined') ||
+            (window.openai && typeof window.openai.ChatKit !== 'undefined');
+        
         const hasReact = typeof window.React !== 'undefined';
         const hasReactDOM = typeof window.ReactDOM !== 'undefined';
-        const hasChatKitReact = typeof window.ChatKitReact !== 'undefined';
         
-        if ((hasChatKit || hasChatKitReact) && hasReact && hasReactDOM) {
+        // Debug: Log what we find
+        if (attempts === 1 || attempts % 4 === 0) {
+            console.log(`🔍 Check ${attempts} (${attempts * 500}ms):`, {
+                'window.ChatKit': typeof window.ChatKit,
+                'window.ChatKitReact': typeof window.ChatKitReact,
+                'window.OpenAI': typeof window.OpenAI,
+                'window.openai': typeof window.openai,
+                'window.React': typeof window.React,
+                'window.ReactDOM': typeof window.ReactDOM,
+            });
+            
+            // Check all window properties that might be ChatKit-related
+            const chatRelated = Object.keys(window).filter(k => 
+                k.toLowerCase().includes('chat') || 
+                k.toLowerCase().includes('openai') ||
+                k.toLowerCase().includes('kit')
+            );
+            if (chatRelated.length > 0 && attempts <= 4) {
+                console.log('  Found Chat-related globals:', chatRelated);
+            }
+        }
+        
+        if (hasChatKit && hasReact && hasReactDOM) {
             console.log(`✅ All required libraries loaded after ${attempts * 500}ms`);
             clearInterval(checkChatKit);
             initChatKit();
         } else if (attempts >= maxAttempts) {
             console.warn(`⚠️ Timeout waiting for ChatKit (${attempts * 500}ms), initializing fallback...`);
+            console.log('💡 The chatkit.js script loaded, but ChatKit React bindings may not be available via CDN.');
+            console.log('💡 Consider installing @openai/chatkit-react via npm instead.');
             clearInterval(checkChatKit);
             initChatKit(); // Will fall back to manual chat
-        } else if (attempts % 4 === 0) {
-            // Log every 2 seconds
-            console.log(`⏳ Still waiting... (${attempts * 500}ms)`, {
-                ChatKit: hasChatKit || hasChatKitReact,
-                React: hasReact,
-                ReactDOM: hasReactDOM
-            });
         }
     }, 500);
 });
