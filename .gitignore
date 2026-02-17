@@ -46,6 +46,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Vite
+.vite/
+
 # Temporary files
 *.tmp
 *.temp

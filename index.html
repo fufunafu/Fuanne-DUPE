@@ -7,21 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
-
-    <!-- React (needed for ChatKit) -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    
-    <!-- ChatKit JS from OpenAI -->
-    <script
-        src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
-        async
-    ></script>
-    
-    <!-- ChatKit React bindings -->
-    <!-- Note: This may need to be installed via npm instead of CDN -->
-    <script src="https://unpkg.com/@openai/chatkit-react@latest/dist/index.umd.js" crossorigin></script>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <!-- Glassmorphism background elements -->
@@ -86,7 +72,7 @@
         </main>
     </div>
 
-    <!-- Note: React is now loaded in <head> above -->
-    <script src="app.js"></script>
+    <!-- Vite will inject the main.jsx script here -->
+    <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
