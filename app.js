@@ -5,7 +5,7 @@
 // Configuration
 const CONFIG = {
     // Your Cloudflare Worker URL (update after deploying the worker)
-    WORKER_URL: 'https://fuanne-dupe-proxy.YOUR_SUBDOMAIN.workers.dev',
+    WORKER_URL: 'https://fuanne-dupe-proxy.fuannegao25.workers.dev',
 
     // OpenAI Workflow ID from Agent Builder
     WORKFLOW_ID: 'wf_6993855a26d4819091b1bba88fc45c580afdc0b8f95265d1',
