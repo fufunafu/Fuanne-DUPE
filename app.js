@@ -278,6 +278,7 @@ async function sendMessage() {
                 message: content,
                 threadId: threadId,
                 workflowId: CONFIG.WORKFLOW_ID,
+                userId: getDeviceId(), // Include user ID for workflow sessions
             }),
         });
 

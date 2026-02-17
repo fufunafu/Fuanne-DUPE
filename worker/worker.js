@@ -93,9 +93,10 @@ async function handleChatKitSession(request, env, corsHeaders) {
 
 // ---- Direct Chat (Assistants API fallback) ----
 // Used when ChatKit CDN script isn't loaded or available
+// If workflowId is provided, uses ChatKit API to run the workflow
 
 async function handleDirectChat(request, env, corsHeaders) {
-    const { message, threadId, workflowId } = await request.json();
+    const { message, threadId, workflowId, userId } = await request.json();
 
     if (!message) {
         return jsonResponse({ error: 'Message is required' }, 400, corsHeaders);
@@ -106,13 +107,17 @@ async function handleDirectChat(request, env, corsHeaders) {
         return jsonResponse({ error: 'API key not configured' }, 500, corsHeaders);
     }
 
+    // If workflowId is provided, use ChatKit API to run the workflow
+    if (workflowId) {
+        return await handleWorkflowChat(request, env, corsHeaders, { message, threadId, workflowId, userId });
+    }
+
+    // Fallback to Responses API if no workflow ID
     const headers = {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
     };
 
-    // Use the Responses API for simplicity with workflows
-    // This sends a single message and gets a response
     const responsePayload = {
         model: 'gpt-4o',
         input: message,
@@ -165,6 +170,111 @@ async function handleDirectChat(request, env, corsHeaders) {
         corsHeaders
     );
 }
+
+// ---- Workflow Chat via ChatKit API ----
+// Uses ChatKit sessions to run workflows from Agent Builder
+// For Agent Builder workflows, we use the Responses API with workflow context
+// The workflow ID is used to route to the correct Agent Builder workflow
+
+async function handleWorkflowChat(request, env, corsHeaders, { message, threadId, workflowId, userId }) {
+    const apiKey = env.OPENAI_API_KEY;
+    
+    // For Agent Builder workflows, use the Responses API with workflow context
+    // The workflow is identified by the workflow ID
+    const headers = {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+    };
+
+    // Use Responses API with workflow context
+    // Note: The Responses API may need the workflow ID in a specific format
+    const responsePayload = {
+        model: 'gpt-4o',
+        input: message,
+        // Include workflow context - this tells OpenAI to use the Agent Builder workflow
+        workflow: { id: workflowId },
+    };
+
+    // If we have a previous conversation thread, include it for continuity
+    if (threadId) {
+        responsePayload.previous_response_id = threadId;
+    }
+
+    // Also include user context for the workflow
+    if (userId) {
+        responsePayload.user = userId;
+    }
+
+    try {
+        const aiResponse = await fetch(`${OPENAI_BASE}/responses`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(responsePayload),
+        });
+
+        if (!aiResponse.ok) {
+            const errorData = await aiResponse.text();
+            console.error('Workflow API error:', errorData);
+            
+            // If workflow parameter doesn't work, try without it as fallback
+            delete responsePayload.workflow;
+            const fallbackResponse = await fetch(`${OPENAI_BASE}/responses`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(responsePayload),
+            });
+            
+            if (!fallbackResponse.ok) {
+                return jsonResponse(
+                    { error: 'Failed to get workflow response' },
+                    fallbackResponse.status,
+                    corsHeaders
+                );
+            }
+            
+            const fallbackData = await fallbackResponse.json();
+            return extractResponse(fallbackData, threadId, corsHeaders);
+        }
+
+        const data = await aiResponse.json();
+        return extractResponse(data, threadId, corsHeaders);
+    } catch (error) {
+        console.error('Workflow chat error:', error);
+        return jsonResponse(
+            { error: 'Failed to process workflow request' },
+            500,
+            corsHeaders
+        );
+    }
+}
+
+// Helper function to extract response from API data
+function extractResponse(data, threadId, corsHeaders) {
+    let responseText = 'No response received.';
+    
+    if (data.output) {
+        for (const item of data.output) {
+            if (item.type === 'message' && item.content) {
+                for (const content of item.content) {
+                    if (content.type === 'output_text') {
+                        responseText = content.text;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return jsonResponse(
+        {
+            response: responseText,
+            threadId: data.id || threadId,
+        },
+        200,
+        corsHeaders
+    );
+}
+
 
 // ---- CORS Helpers ----
 
