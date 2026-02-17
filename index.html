@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuanne DUPE - Internal Knowledge Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- ChatKit JS from OpenAI -->
+    <script
+        src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
+        async
+    ></script>
+</head>
+<body>
+    <!-- Glassmorphism background elements -->
+    <div class="bg-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar / Nav -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#grad)" stroke-width="2.5" fill="none"/>
+                            <path d="M9 10h10M9 14h7M9 18h10" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+                            <defs>
+                                <linearGradient id="grad" x1="0" y1="0" x2="28" y2="28">
+                                    <stop offset="0%" stop-color="#60a5fa"/>
+                                    <stop offset="100%" stop-color="#a78bfa"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <span class="logo-name">Fuanne DUPE</span>
+                        <span class="logo-sub">Knowledge Assistant</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="ask">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>Ask DUPE</span>
+                </a>
+                <a href="#" class="nav-item" data-section="admin">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+                    </svg>
+                    <span>Admin</span>
+                    <span class="badge">Soon</span>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="powered-by">
+                    Powered by RF Transparent &amp; Glass Railing Store
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- ChatKit mount point -->
+            <div id="chatkit-root"></div>
+        </main>
+    </div>
+
+    <!-- React (needed for ChatKit React bindings) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+    <script src="app.js"></script>
+</body>
+</html>
