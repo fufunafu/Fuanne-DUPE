@@ -26,16 +26,24 @@ function getDeviceId() {
 // Wait for ChatKit library to load, then initialize
 function initChatKit() {
     const root = document.getElementById('chatkit-root');
+    
+    console.log('🔍 Checking ChatKit availability...');
+    console.log('  - window.ChatKit:', typeof window.ChatKit !== 'undefined' ? '✅ Available' : '❌ Not available');
+    console.log('  - window.React:', typeof window.React !== 'undefined' ? '✅ Available' : '❌ Not available');
+    console.log('  - window.ReactDOM:', typeof window.ReactDOM !== 'undefined' ? '✅ Available' : '❌ Not available');
+    console.log('  - window.ChatKitReact:', typeof window.ChatKitReact !== 'undefined' ? '✅ Available' : '❌ Not available');
 
     // Check if the ChatKit React bindings are available
     // Since ChatKit is loaded via CDN, we check for the global
     if (typeof window.ChatKit !== 'undefined' && window.React && window.ReactDOM) {
+        console.log('✅ ChatKit and React detected, attempting to mount ChatKit widget...');
         mountChatKit();
         return;
     }
 
     // If ChatKit React bindings aren't available via CDN globals,
     // fall back to the manual integration approach
+    console.log('⚠️ ChatKit widget not available, falling back to manual chat (workflow will not be used)');
     mountManualChat(root);
 }
 
@@ -44,24 +52,55 @@ function initChatKit() {
 
 function mountChatKit() {
     const root = document.getElementById('chatkit-root');
-    if (!root) return;
+    if (!root) {
+        console.error('❌ ChatKit root element not found');
+        return;
+    }
+
+    console.log('🔧 Attempting to mount ChatKit widget...');
+    console.log('  - Workflow ID:', CONFIG.WORKFLOW_ID);
+    console.log('  - Worker URL:', CONFIG.WORKER_URL);
 
     // Check if React and ChatKit are available
-    if (!window.React || !window.ReactDOM || !window.ChatKit) {
-        console.warn('ChatKit or React not available, falling back to manual chat');
+    if (!window.React || !window.ReactDOM) {
+        console.error('❌ React or ReactDOM not available');
+        console.warn('⚠️ Falling back to manual chat (workflow will not be used)');
+        mountManualChat(root);
+        return;
+    }
+
+    // Check for ChatKit React bindings
+    // The CDN might expose it differently - let's check multiple possibilities
+    let ChatKitComponent, useChatKitHook;
+    
+    if (window.ChatKitReact && window.ChatKitReact.ChatKit && window.ChatKitReact.useChatKit) {
+        console.log('✅ Found ChatKitReact from CDN');
+        ChatKitComponent = window.ChatKitReact.ChatKit;
+        useChatKitHook = window.ChatKitReact.useChatKit;
+    } else if (window.ChatKit && window.ChatKit.ChatKit && window.ChatKit.useChatKit) {
+        console.log('✅ Found ChatKit from window.ChatKit');
+        ChatKitComponent = window.ChatKit.ChatKit;
+        useChatKitHook = window.ChatKit.useChatKit;
+    } else {
+        console.error('❌ ChatKit React bindings not found');
+        console.log('Available globals:', Object.keys(window).filter(k => k.toLowerCase().includes('chat')));
+        console.warn('⚠️ Falling back to manual chat (workflow will not be used)');
         mountManualChat(root);
         return;
     }
 
     const { useState, useEffect } = window.React;
     const { createRoot } = window.ReactDOM;
-    const { ChatKit, useChatKit } = window.ChatKit;
 
     // ChatKit component that connects to your workflow
-    function ChatKitComponent() {
-        const { control } = useChatKit({
+    function ChatKitWrapper() {
+        console.log('🎨 Creating ChatKit component...');
+        
+        const { control } = useChatKitHook({
             api: {
                 async getClientSecret(existing) {
+                    console.log('🔑 Requesting ChatKit session...', existing ? '(refreshing)' : '(new)');
+                    
                     if (existing) {
                         // Implement session refresh if needed
                         // For now, create a new session
@@ -80,16 +119,19 @@ function mountChatKit() {
                     });
 
                     if (!res.ok) {
-                        throw new Error('Failed to create ChatKit session');
+                        const errorText = await res.text();
+                        console.error('❌ Failed to create ChatKit session:', errorText);
+                        throw new Error('Failed to create ChatKit session: ' + errorText);
                     }
 
                     const { client_secret } = await res.json();
+                    console.log('✅ ChatKit session created successfully');
                     return client_secret;
                 },
             },
         });
 
-        return window.React.createElement(ChatKit, {
+        return window.React.createElement(ChatKitComponent, {
             control: control,
             className: 'chatkit-widget',
             style: {
@@ -101,10 +143,14 @@ function mountChatKit() {
 
     // Mount ChatKit using React
     try {
+        console.log('🚀 Mounting ChatKit React component...');
         const reactRoot = createRoot(root);
-        reactRoot.render(window.React.createElement(ChatKitComponent));
+        reactRoot.render(window.React.createElement(ChatKitWrapper));
+        console.log('✅ ChatKit widget mounted successfully!');
     } catch (error) {
-        console.error('Failed to mount ChatKit:', error);
+        console.error('❌ Failed to mount ChatKit:', error);
+        console.error('Error details:', error.stack);
+        console.warn('⚠️ Falling back to manual chat (workflow will not be used)');
         mountManualChat(root);
     }
 }
@@ -387,6 +433,34 @@ async function sendMessage() {
 // ---- Initialize on load ----
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Small delay to let ChatKit CDN script load
-    setTimeout(initChatKit, 500);
+    console.log('📄 DOM loaded, waiting for ChatKit scripts...');
+    
+    // Wait for scripts to load, check multiple times
+    let attempts = 0;
+    const maxAttempts = 20; // 10 seconds total
+    
+    const checkChatKit = setInterval(() => {
+        attempts++;
+        const hasChatKit = typeof window.ChatKit !== 'undefined';
+        const hasReact = typeof window.React !== 'undefined';
+        const hasReactDOM = typeof window.ReactDOM !== 'undefined';
+        const hasChatKitReact = typeof window.ChatKitReact !== 'undefined';
+        
+        if ((hasChatKit || hasChatKitReact) && hasReact && hasReactDOM) {
+            console.log(`✅ All required libraries loaded after ${attempts * 500}ms`);
+            clearInterval(checkChatKit);
+            initChatKit();
+        } else if (attempts >= maxAttempts) {
+            console.warn(`⚠️ Timeout waiting for ChatKit (${attempts * 500}ms), initializing fallback...`);
+            clearInterval(checkChatKit);
+            initChatKit(); // Will fall back to manual chat
+        } else if (attempts % 4 === 0) {
+            // Log every 2 seconds
+            console.log(`⏳ Still waiting... (${attempts * 500}ms)`, {
+                ChatKit: hasChatKit || hasChatKitReact,
+                React: hasReact,
+                ReactDOM: hasReactDOM
+            });
+        }
+    }, 500);
 });
