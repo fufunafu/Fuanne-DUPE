@@ -3,7 +3,7 @@ main = "worker.js"
 compatibility_date = "2024-01-01"
 
 [vars]
-ALLOWED_ORIGINS = "https://fufunafu.github.io,http://localhost:3000"
+ALLOWED_ORIGINS = "https://fufunafu.github.io,http://localhost:3000,http://localhost:8000,null,*"
 
 # IMPORTANT: Set your API key as a secret, NOT here.
 # Run: npx wrangler secret put OPENAI_API_KEY

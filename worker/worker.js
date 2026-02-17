@@ -171,10 +171,11 @@ async function handleDirectChat(request, env, corsHeaders) {
 function getCORSHeaders(request, env) {
     const origin = request.headers.get('Origin') || '';
     const allowed = (env.ALLOWED_ORIGINS || '*').split(',').map(s => s.trim());
-    const isAllowed = allowed.includes('*') || allowed.includes(origin);
+    // Allow null origin (file:// protocol) for local testing
+    const isAllowed = allowed.includes('*') || allowed.includes(origin) || allowed.includes('null') || origin === 'null' || origin === '';
 
     return {
-        'Access-Control-Allow-Origin': isAllowed ? origin || '*' : '',
+        'Access-Control-Allow-Origin': isAllowed ? (origin || '*') : '',
         'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Max-Age': '86400',
